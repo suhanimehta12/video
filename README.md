@@ -1,19 +1,18 @@
-# 🎈 Blank app template
+# BLIP-Based Video Captioning App
 
-A simple Streamlit app template for you to modify!
+This Streamlit application generates captions for uploaded videos using the **BLIP model** from **Salesforce**.  
+It processes a video, extracts frames, generates a caption for the first frame, and overlays it on all frames.  
+The final processed video is available for preview and download.
 
-[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://blank-app-template.streamlit.app/)
+## Features:
+- Upload a video (MP4 format)
+- Generate captions using the BLIP model
+- Overlay captions on video frames
+- Preview and download the processed video
 
-### How to run it on your own machine
-
-1. Install the requirements
-
-   ```
-   $ pip install -r requirements.txt
-   ```
-
-2. Run the app
-
-   ```
-   $ streamlit run streamlit_app.py
-   ```
+## Installation:
+Clone the repository and install dependencies:
+```bash
+git clone https://github.com/yourusername/video-captioning-blip.git
+cd video-captioning-blip
+pip install -r requirements.txt
