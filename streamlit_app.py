@@ -1,72 +1,141 @@
-
+import streamlit as st
 import cv2
 import numpy as np
 from transformers import BlipProcessor, BlipForConditionalGeneration
 from PIL import Image
-import streamlit as st
 import tempfile
 import os
 from io import BytesIO
 
-# Streamlit App
-def main():
-    st.title("Video Captioning")
+# Set up page configurations
+st.set_page_config(page_title="Video Captioning App", layout="wide")
 
-    # Navigation for the two pages
-    page = st.sidebar.radio("Choose a page", ["Upload the Video", "Download Processed Video"])
+# Create a Blip model and processor for captioning
+processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
+model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
 
-    if page == "Upload the Video":
-        upload_and_preview_video()
-    elif page == "Download Processed Video":
-        download_processed_video()
+def generate_caption(image):
+    inputs = processor(image, return_tensors="pt")
+    caption_ids = model.generate(**inputs)
+    caption = processor.batch_decode(caption_ids, skip_special_tokens=True)[0]
+    return caption
 
-# Upload and Preview Video Page
-def upload_and_preview_video():
-    st.subheader("Upload Your Video")
-    
-    # Description about how the model works
-    st.write("""
-   THIS APPLICATION HELPS TO GENERATE CAPTIONS FROM THE VIDEO.
-    """)
+def process_video_with_caption(video_path, processor, model):
+    # Open the video file
+    cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        st.error("Error: Could not open video.")
+        return None
 
-    # Upload video file through Streamlit
-    video_file = st.file_uploader("Upload a Video", type=["mp4"])
+    # Get video properties
+    frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    fps = cap.get(cv2.CAP_PROP_FPS)
 
+    # Temporary output video file
+    output_video_path = os.path.join(tempfile.mkdtemp(), "output_video_with_caption.mp4")
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    out = cv2.VideoWriter(output_video_path, fourcc, fps, (frame_width, frame_height))
+
+    # Process the first frame to generate a caption
+    ret, frame = cap.read()
+    if not ret:
+        st.error("Error: Could not read frame.")
+        return None
+    pil_image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+    caption = generate_caption(pil_image)
+
+    # Go back to the start and overlay the caption
+    cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret:
+            break
+        cv2.putText(frame, caption, (50, frame_height - 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+        out.write(frame)
+
+    cap.release()
+    out.release()
+
+    return output_video_path
+
+# Create Streamlit app layout and pages
+st.markdown("""
+    <style>
+        .stApp {
+            background-color: #F4F8FC;
+            padding: 20px;
+        }
+        .header {
+            font-size: 3em;
+            color: #333;
+            font-weight: bold;
+            text-align: center;
+        }
+        .description {
+            font-size: 1.2em;
+            color: #555;
+            text-align: center;
+            margin-top: 20px;
+        }
+        .button {
+            background-color: #FF9800;
+            color: white;
+            border-radius: 10px;
+            padding: 12px 25px;
+            font-size: 1.2em;
+            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+            transition: 0.3s ease;
+            margin-top: 20px;
+        }
+        .button:hover {
+            background-color: #FF5722;
+            box-shadow: 0px 6px 8px rgba(0, 0, 0, 0.15);
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
+# Streamlit app pages
+page = st.selectbox("Choose a page", ["Upload Video", "Download Processed Video"])
+
+if page == "Upload Video":
+    st.markdown("<div class='header'>Upload a Video</div>", unsafe_allow_html=True)
+    st.markdown("""
+    <div class="description">
+        Upload your video, and we will generate captions for it.
+    </div>
+    """, unsafe_allow_html=True)
+
+    video_file = st.file_uploader("Choose a video", type=["mp4"])
     if video_file is not None:
-        # Write the uploaded video to a temporary file
+        # Save video temporarily
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp_file:
             tmp_file.write(video_file.read())
             video_path = tmp_file.name
 
-        # Display the uploaded video
         st.video(video_file)
 
-        # Load the BLIP model and processor for image captioning
-        processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
-        model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
+        st.markdown("""
+        <div class="description">
+            Click on "Process Video" to add captions to your video.
+        </div>
+        """, unsafe_allow_html=True)
 
-        # Process the video and overlay caption
-        output_video_path = process_video_with_caption(video_path, processor, model)
+        if st.button("Process Video", key="process_video"):
+            with st.spinner("Processing video..."):
+                output_video_path = process_video_with_caption(video_path, processor, model)
+                st.video(output_video_path)
 
-        # Store the output video path in session state for the second page
-        st.session_state.output_video_path = output_video_path
+elif page == "Download Processed Video":
+    st.markdown("<div class='header'>Download Processed Video</div>", unsafe_allow_html=True)
+    st.markdown("""
+    <div class="description">
+        After processing, you can download your video with captions.
+    </div>
+    """, unsafe_allow_html=True)
 
-# Download Processed Video Page
-def download_processed_video():
-    st.subheader("Download the Processed Video")
-
-    # Description of the processed video
-    st.write("""
-    After your video is processed, you can download the video  by clicking the button below.
-    
-    The caption decsribes the content of the video.
-    """)
-
-    # Check if the processed video is available
-    if "output_video_path" in st.session_state:
-        output_video_path = st.session_state.output_video_path
-        
-        # Provide download button for the processed video
+    output_video_path = st.text_input("Enter the processed video path", "")
+    if output_video_path:
         with open(output_video_path, "rb") as f:
             st.download_button(
                 label="Download Processed Video",
@@ -74,70 +143,4 @@ def download_processed_video():
                 file_name="output_video_with_caption.mp4",
                 mime="video/mp4"
             )
-    else:
-        st.warning("Please upload and process a video first to download it.")
 
-def process_video_with_caption(video_path, processor, model):
-    # Open the video file
-    cap = cv2.VideoCapture(video_path)
-
-    if not cap.isOpened():
-        st.error("Error: Could not open video.")
-        return None
-
-    # Get the video frame width, height, and FPS (frames per second)
-    frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    fps = cap.get(cv2.CAP_PROP_FPS)
-
-    # Create a temporary output video file
-    output_video_path = os.path.join(tempfile.mkdtemp(), "output_video_with_caption.mp4")
-
-    # Initialize the video writer to write the new video with captions
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Codec for .mp4 format
-    out = cv2.VideoWriter(output_video_path, fourcc, fps, (frame_width, frame_height))
-
-    # Process the first frame (or any frame you want) to generate one caption
-    ret, frame = cap.read()
-    if not ret:
-        st.error("Error: Could not read frame.")
-        return None
-
-    # Convert the frame to a PIL image for captioning
-    pil_image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-
-    # Generate the caption for this frame (the same caption will be used for all frames)
-    inputs = processor(pil_image, return_tensors="pt")
-    out_text = model.generate(**inputs)
-    common_caption = processor.decode(out_text[0], skip_special_tokens=True)
-
-    # Go back to the start of the video
-    cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-
-    # Read frames and overlay the common caption
-    while cap.isOpened():
-        ret, frame = cap.read()
-        if not ret:
-            break
-
-        # Overlay the common caption on the frame
-        cv2.putText(frame, common_caption, (50, frame_height - 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
-
-        # Write the frame with the common caption to the output video
-        out.write(frame)
-
-    # Release the video capture and writer objects
-    cap.release()
-    out.release()
-
-    st.success("Video Processing Completed!")
-
-    return output_video_path
-
-if __name__ == "__main__":
-    main()
-
-
-if __name__ == "__main__":
-    main()
-()
