@@ -11,6 +11,25 @@ from io import BytesIO
 def main():
     st.title("Video Captioning with BLIP")
 
+    # Navigation for the two pages
+    page = st.sidebar.radio("Choose a page", ["Upload and Preview Video", "Download Processed Video"])
+
+    if page == "Upload and Preview Video":
+        upload_and_preview_video()
+    elif page == "Download Processed Video":
+        download_processed_video()
+
+# Upload and Preview Video Page
+def upload_and_preview_video():
+    st.subheader("Upload and Preview Your Video")
+    
+    # Description about how the model works
+    st.write("""
+    This application allows you to upload a video, which will then be processed using BLIP (Bootstrapping Language Image Pretraining). 
+    BLIP generates captions for the video frames. The same caption will be overlaid on each frame, and a new video will be generated with the caption.
+    Upload your video file below to get started.
+    """)
+
     # Upload video file through Streamlit
     video_file = st.file_uploader("Upload a Video", type=["mp4"])
 
@@ -20,7 +39,7 @@ def main():
             tmp_file.write(video_file.read())
             video_path = tmp_file.name
 
-        # Display video
+        # Display the uploaded video
         st.video(video_file)
 
         # Load the BLIP model and processor for image captioning
@@ -30,17 +49,33 @@ def main():
         # Process the video and overlay caption
         output_video_path = process_video_with_caption(video_path, processor, model)
 
-        # Display processed video
-        st.video(output_video_path)
+        # Store the output video path in session state for the second page
+        st.session_state.output_video_path = output_video_path
 
+# Download Processed Video Page
+def download_processed_video():
+    st.subheader("Download the Processed Video")
+
+    # Description of the processed video
+    st.write("""
+    After your video is processed, you can download the video with the generated captions overlaid on each frame. 
+    The captions will be the same for every frame and are based on the first frame's image analysis.
+    """)
+
+    # Check if the processed video is available
+    if "output_video_path" in st.session_state:
+        output_video_path = st.session_state.output_video_path
+        
         # Provide download button for the processed video
         with open(output_video_path, "rb") as f:
             st.download_button(
                 label="Download Processed Video",
                 data=f,
-                file_name="output_video_with_common_caption.mp4",
+                file_name="output_video_with_caption.mp4",
                 mime="video/mp4"
             )
+    else:
+        st.warning("Please upload and process a video first to download it.")
 
 def process_video_with_caption(video_path, processor, model):
     # Open the video file
@@ -56,7 +91,7 @@ def process_video_with_caption(video_path, processor, model):
     fps = cap.get(cv2.CAP_PROP_FPS)
 
     # Create a temporary output video file
-    output_video_path = os.path.join(tempfile.mkdtemp(), "output_video_with_common_caption.mp4")
+    output_video_path = os.path.join(tempfile.mkdtemp(), "output_video_with_caption.mp4")
 
     # Initialize the video writer to write the new video with captions
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Codec for .mp4 format
@@ -101,3 +136,4 @@ def process_video_with_caption(video_path, processor, model):
 
 if __name__ == "__main__":
     main()
+()
