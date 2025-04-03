@@ -95,17 +95,47 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# Streamlit app layout with radio buttons for navigation
-page = st.radio("Choose a page", ["Upload Video", "Download Processed Video"])
+# Main layout of the page
+st.markdown("<div class='header'>Video Captioning App</div>", unsafe_allow_html=True)
+st.markdown("""
+<div class="description">
+    Upload your video, and we will generate captions for it. Once processed, you can download the video with captions.
+</div>
+""", unsafe_allow_html=True)
 
-if page == "Upload Video":
-    st.markdown("<div class='header'>Upload a Video</div>", unsafe_allow_html=True)
+# Upload video file
+video_file = st.file_uploader("Choose a video", type=["mp4"])
+if video_file is not None:
+    # Save the uploaded video temporarily
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp_file:
+        tmp_file.write(video_file.read())
+        video_path = tmp_file.name
+
+    # Display the uploaded video for preview
+    st.video(video_file)
+
     st.markdown("""
     <div class="description">
-        Upload your video, and we will generate captions for it.
+        Click on "Process Video" to add captions to your video.
     </div>
     """, unsafe_allow_html=True)
 
-    video_file = st.file_uploader("Choose a video", type=["mp4"])
+    # Process video and display download button
+    if st.button("Process Video", key="process_video"):
+        with st.spinner("Processing video..."):
+            output_video_path = process_video_with_caption(video_path, processor, model)
+            st.session_state.processed_video_path = output_video_path
+            st.success("Video processed successfully!")
 
-
+    # Show download button after processing video
+    if 'processed_video_path' in st.session_state:
+        output_video_path = st.session_state.processed_video_path
+        with open(output_video_path, "rb") as f:
+            st.download_button(
+                label="Download Processed Video",
+                data=f,
+                file_name="output_video_with_caption.mp4",
+                mime="video/mp4"
+            )
+else:
+    st.warning("Please upload a video to get started.")
