@@ -4,4 +4,3 @@ transformers
 pillow
 numpy
 opencv-python-headless
-
