@@ -1,4 +1,4 @@
-%%writefile fullapp.py
+
 import cv2
 import numpy as np
 from transformers import BlipProcessor, BlipForConditionalGeneration
