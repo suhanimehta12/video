@@ -24,7 +24,6 @@ def process_video_with_caption(video_path, processor, model):
     # Open the video file
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
-        # Fix: ensure the string is properly closed
         st.error("Error: Could not open video.")
         return None
 
@@ -41,7 +40,6 @@ def process_video_with_caption(video_path, processor, model):
     # Process the first frame to generate a caption
     ret, frame = cap.read()
     if not ret:
-        # Fix: ensure the string is properly closed
         st.error("Error: Could not read frame.")
         return None
     pil_image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
@@ -109,30 +107,5 @@ if page == "Upload Video":
     """, unsafe_allow_html=True)
 
     video_file = st.file_uploader("Choose a video", type=["mp4"])
-    if video_file is not None:
-        # Save video temporarily
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp_file:
-            tmp_file.write(video_file.read())
-            video_path = tmp_file.name
-
-        st.video(video_file)
-
-        st.markdown("""
-        <div class="description">
-            Click on "Process Video" to add captions to your video.
-        </div>
-        """, unsafe_allow_html=True)
-
-        if st.button("Process Video", key="process_video"):
-            with st.spinner("Processing video..."):
-                output_video_path = process_video_with_caption(video_path, processor, model)
-                st.session_state.processed_video_path = output_video_path
-                st.success("Video processed successfully!")
-
-elif page == "Download Processed Video":
-    st.markdown("<div class='header'>Download Processed Video</div>", unsafe_allow_html=True)
-    st.markdown("""
-    <div class="description">
-        After processing, click the button below to download your video with
 
 
